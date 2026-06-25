@@ -36,13 +36,59 @@
                     <input id="centerDistance" type="range" min="11" max="18" value="12" step="0.1" />
                 </label>
 
-                <label class="field">
-                    <span>Layout</span>
-                    <select id="layoutMode">
-                        <option value="hex">Hexagonal</option>
-                        <option value="grid">Grid</option>
-                    </select>
-                </label>
+                <fieldset class="layout-picker" aria-label="Layout">
+                    <legend>Layout</legend>
+                    <div class="layout-options">
+                        <label class="layout-option" id="layoutOptionGrid" title="Grid">
+                            <input id="layoutGrid" type="radio" name="layoutOption" value="grid" />
+                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                <circle cx="10" cy="10" r="3" />
+                                <circle cx="20" cy="10" r="3" />
+                                <circle cx="30" cy="10" r="3" />
+                                <circle cx="10" cy="20" r="3" />
+                                <circle cx="20" cy="20" r="3" />
+                                <circle cx="30" cy="20" r="3" />
+                                <circle cx="10" cy="30" r="3" />
+                                <circle cx="20" cy="30" r="3" />
+                                <circle cx="30" cy="30" r="3" />
+                            </svg>
+                            <span class="layout-name">Grid</span>
+                            <span class="best-badge">Best</span>
+                        </label>
+
+                        <label class="layout-option" id="layoutOptionHexWidth" title="Hex rows across width">
+                            <input id="layoutHexWidth" type="radio" name="layoutOption" value="hex_width" checked />
+                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                <circle cx="9" cy="11" r="3" />
+                                <circle cx="21" cy="11" r="3" />
+                                <circle cx="33" cy="11" r="3" />
+                                <circle cx="15" cy="21" r="3" />
+                                <circle cx="27" cy="21" r="3" />
+                                <circle cx="9" cy="31" r="3" />
+                                <circle cx="21" cy="31" r="3" />
+                                <circle cx="33" cy="31" r="3" />
+                            </svg>
+                            <span class="layout-name">Rows</span>
+                            <span class="best-badge">Best</span>
+                        </label>
+
+                        <label class="layout-option" id="layoutOptionHexLength" title="Hex columns up length">
+                            <input id="layoutHexLength" type="radio" name="layoutOption" value="hex_length" />
+                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                <circle cx="11" cy="9" r="3" />
+                                <circle cx="11" cy="21" r="3" />
+                                <circle cx="11" cy="33" r="3" />
+                                <circle cx="21" cy="15" r="3" />
+                                <circle cx="21" cy="27" r="3" />
+                                <circle cx="31" cy="9" r="3" />
+                                <circle cx="31" cy="21" r="3" />
+                                <circle cx="31" cy="33" r="3" />
+                            </svg>
+                            <span class="layout-name">Columns</span>
+                            <span class="best-badge">Best</span>
+                        </label>
+                    </div>
+                </fieldset>
             </div>
 
             <details class="settings">
@@ -89,10 +135,6 @@
                     <span class="stat-value" id="overlapValue">0%</span>
                     <span class="stat-label">overlap area</span>
                 </div>
-                <div>
-                    <span class="stat-value" id="usableValue">0 x 0 m</span>
-                    <span class="stat-label">center zone</span>
-                </div>
             </div>
 
             <div class="actions">
@@ -135,10 +177,24 @@ state_ids = [
     "serviceRadius",
     "centerDistance",
     "margin",
-    "layoutMode",
+    "layoutGrid",
+    "layoutHexWidth",
+    "layoutHexLength",
 ]
 
 last_csv = ""
+layout_options = ["grid", "hex_width", "hex_length"]
+epsilon = 0.001
+layout_node_ids = {
+    "grid": "layoutOptionGrid",
+    "hex_width": "layoutOptionHexWidth",
+    "hex_length": "layoutOptionHexLength",
+}
+layout_input_ids = {
+    "grid": "layoutGrid",
+    "hex_width": "layoutHexWidth",
+    "hex_length": "layoutHexLength",
+}
 
 
 def el(selector):
@@ -155,8 +211,27 @@ def fmt(value):
     return f"{value:.1f}"
 
 
+def selected_layout_option():
+    selected = document.querySelector('input[name="layoutOption"]:checked')
+    return selected.value if selected else "hex_width"
+
+
+def apply_layout_option(state, option):
+    state["layout_option"] = option
+    if option == "grid":
+        state["mode"] = "grid"
+        state["hex_orientation"] = "width"
+    elif option == "hex_length":
+        state["mode"] = "hex"
+        state["hex_orientation"] = "length"
+    else:
+        state["mode"] = "hex"
+        state["hex_orientation"] = "width"
+    return state
+
+
 def read_state():
-    return {
+    state = {
         "field_width": float(by_id("fieldWidth").value),
         "field_length": float(by_id("fieldLength").value),
         "radius": float(by_id("courtRadius").value),
@@ -165,8 +240,81 @@ def read_state():
         "service_radius": float(by_id("serviceRadius").value),
         "distance": float(by_id("centerDistance").value),
         "margin": float(by_id("margin").value),
-        "mode": by_id("layoutMode").value,
     }
+    return apply_layout_option(state, selected_layout_option())
+
+
+def fit_count(span, gap, offset=0):
+    if gap <= 0:
+        return 1
+    remaining = span - offset
+    if remaining < -epsilon:
+        return 0
+    return int(math.floor((remaining + epsilon) / gap)) + 1
+
+
+def hex_candidate_gaps(width, length, distance):
+    max_cols = max(1, int(math.floor(width / distance)) + 1)
+    if max_cols <= 1:
+        return [0]
+
+    gaps = {distance}
+    for cols in range(2, max_cols + 1):
+        gaps.add(width / (cols - 1))
+        gaps.add(width / (cols - 0.5))
+
+    max_rows = max(1, int(math.floor(length / max(distance / 2, epsilon))) + 1)
+    for rows in range(2, max_rows + 1):
+        target_gap = length / (rows - 1)
+        if 0 < target_gap < distance:
+            gaps.add(2 * math.sqrt(max(0, distance * distance - target_gap * target_gap)))
+
+    return sorted(gap for gap in gaps if distance - epsilon <= gap <= width + epsilon)
+
+
+def hex_metrics_for_gap(width, length, distance, x_gap):
+    if x_gap <= 0:
+        rows = max(1, int(math.floor(length / distance)) + 1)
+        y_gap = length / (rows - 1) if rows > 1 else 0
+        return {
+            "even_cols": 1,
+            "odd_cols": 1,
+            "rows": rows,
+            "x_gap": 0,
+            "y_gap": y_gap,
+            "count": rows,
+            "min_nearest": y_gap if rows > 1 else float("inf"),
+        }
+
+    even_cols = max(1, fit_count(width, x_gap))
+    odd_cols = max(0, fit_count(width, x_gap, x_gap / 2))
+    min_row_gap = max(distance / 2, math.sqrt(max(0, distance * distance - (x_gap / 2) ** 2)))
+    rows = max(1, int(math.floor((length + epsilon) / min_row_gap)) + 1)
+    y_gap = length / (rows - 1) if rows > 1 else 0
+    even_rows = (rows + 1) // 2
+    odd_rows = rows // 2
+    count = even_rows * even_cols + odd_rows * odd_cols
+    nearest_candidates = []
+    if even_cols > 1:
+        nearest_candidates.append(x_gap)
+    if rows > 1:
+        nearest_candidates.append(math.hypot(x_gap / 2, y_gap))
+    min_nearest = min(nearest_candidates) if nearest_candidates else float("inf")
+
+    return {
+        "even_cols": even_cols,
+        "odd_cols": odd_cols,
+        "rows": rows,
+        "x_gap": x_gap,
+        "y_gap": y_gap,
+        "count": count,
+        "min_nearest": min_nearest,
+    }
+
+
+def hex_metrics(width, length, distance):
+    candidates = [hex_metrics_for_gap(width, length, distance, gap) for gap in hex_candidate_gaps(width, length, distance)]
+    return max(candidates, key=lambda item: (item["even_cols"], item["count"], item["min_nearest"], item["x_gap"], item["y_gap"]))
 
 
 def layout_recipe(state):
@@ -184,18 +332,32 @@ def layout_recipe(state):
             ("Repeat up", y_gap),
         ]
 
-    cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
-    x_gap = usable_w / (cols - 1) if cols > 1 else 0
-    if x_gap > 0:
-        min_row_gap = max(state["distance"] / 2, math.sqrt(max(0, state["distance"] * state["distance"] - (x_gap / 2) ** 2)))
-    else:
-        min_row_gap = state["distance"]
-    rows = max(1, int(math.floor(usable_l / min_row_gap)) + 1)
-    y_gap = usable_l / (rows - 1) if rows > 1 else 0
-    second_row = center_inset + y_gap if rows > 1 else center_inset
+    if state["hex_orientation"] == "length":
+        metrics = hex_metrics(usable_l, usable_w, state["distance"])
+        repeat_up = metrics["x_gap"]
+        repeat_across = metrics["y_gap"]
+        first_col = center_inset if metrics["rows"] > 1 else center_inset + usable_w / 2
+        first_y = center_inset if metrics["even_cols"] > 1 else center_inset + usable_l / 2
+        second_col = first_col + repeat_across if metrics["rows"] > 1 else first_col
+        second_col_y = first_y + repeat_up / 2 if metrics["even_cols"] > 1 else first_y
+        return [
+            ("Repeat up", repeat_up),
+            ("Column 2 from bottom", second_col_y),
+            ("Column 2 from left", second_col),
+            ("Repeat columns across", repeat_across),
+        ]
+
+    metrics = hex_metrics(usable_w, usable_l, state["distance"])
+    x_gap = metrics["x_gap"]
+    y_gap = metrics["y_gap"]
+    x_start = center_inset if metrics["even_cols"] > 1 else center_inset + usable_w / 2
+    y_start = center_inset if metrics["rows"] > 1 else center_inset + usable_l / 2
+    second_row_x = x_start + x_gap / 2 if metrics["even_cols"] > 1 else x_start
+    second_row = y_start + y_gap if metrics["rows"] > 1 else y_start
     return [
         ("Repeat across", x_gap),
-        ("Row 2 from sideline", second_row),
+        ("Row 2 from left", second_row_x),
+        ("Row 2 from bottom", second_row),
         ("Repeat rows up", y_gap),
     ]
 
@@ -218,19 +380,31 @@ def layout_guides(state):
         ]
         return guides
 
-    cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
-    x_gap = usable_w / (cols - 1) if cols > 1 else 0
-    if x_gap > 0:
-        min_row_gap = max(state["distance"] / 2, math.sqrt(max(0, state["distance"] * state["distance"] - (x_gap / 2) ** 2)))
-    else:
-        min_row_gap = state["distance"]
-    rows = max(1, int(math.floor(usable_l / min_row_gap)) + 1)
-    y_gap = usable_l / (rows - 1) if rows > 1 else 0
-    x_start = center_inset if cols > 1 else center_inset + usable_w / 2
-    y_start = center_inset if rows > 1 else center_inset + usable_l / 2
-    second_row = y_start + y_gap if rows > 1 else y_start
+    if state["hex_orientation"] == "length":
+        metrics = hex_metrics(usable_l, usable_w, state["distance"])
+        repeat_up = metrics["x_gap"]
+        repeat_across = metrics["y_gap"]
+        x_start = center_inset if metrics["rows"] > 1 else center_inset + usable_w / 2
+        y_start = center_inset if metrics["even_cols"] > 1 else center_inset + usable_l / 2
+        second_col = x_start + repeat_across if metrics["rows"] > 1 else x_start
+        second_col_y = y_start + repeat_up / 2 if metrics["even_cols"] > 1 else y_start
+        return [
+            {"axis": "y", "track": 0, "from": y_start, "to": y_start + repeat_up, "label": f"{repeat_up:.2f} m", "value": repeat_up},
+            {"axis": "y", "track": 1, "from": 0, "to": second_col_y, "label": f"{second_col_y:.2f} m", "value": second_col_y},
+            {"axis": "x", "track": 0, "from": 0, "to": second_col, "label": f"{second_col:.2f} m", "value": second_col},
+            {"axis": "x", "track": 1, "from": x_start, "to": x_start + repeat_across, "label": f"{repeat_across:.2f} m", "value": repeat_across},
+        ]
+
+    metrics = hex_metrics(usable_w, usable_l, state["distance"])
+    x_gap = metrics["x_gap"]
+    y_gap = metrics["y_gap"]
+    x_start = center_inset if metrics["even_cols"] > 1 else center_inset + usable_w / 2
+    y_start = center_inset if metrics["rows"] > 1 else center_inset + usable_l / 2
+    second_row_x = x_start + x_gap / 2 if metrics["even_cols"] > 1 else x_start
+    second_row = y_start + y_gap if metrics["rows"] > 1 else y_start
     return [
         {"axis": "x", "track": 0, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap},
+        {"axis": "x", "track": 1, "from": 0, "to": second_row_x, "label": f"{second_row_x:.2f} m", "value": second_row_x},
         {"axis": "y", "track": 0, "from": 0, "to": second_row, "label": f"{second_row:.2f} m", "value": second_row},
         {"axis": "y", "track": 1, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap},
     ]
@@ -251,27 +425,71 @@ def generate_grid(width, length, distance, margin):
 def generate_hex(width, length, distance, margin):
     if width <= 0 or length <= 0:
         return []
-    even_cols = max(1, int(math.floor(width / distance)) + 1)
-    x_gap = width / (even_cols - 1) if even_cols > 1 else 0
-    if x_gap > 0:
-        min_row_gap = max(distance / 2, math.sqrt(max(0, distance * distance - (x_gap / 2) ** 2)))
-    else:
-        min_row_gap = distance
-    rows = max(1, int(math.floor(length / min_row_gap)) + 1)
-    y_gap = length / (rows - 1) if rows > 1 else 0
+    metrics = hex_metrics(width, length, distance)
+    even_cols = metrics["even_cols"]
+    x_gap = metrics["x_gap"]
+    rows = metrics["rows"]
+    y_gap = metrics["y_gap"]
     y0 = margin if rows > 1 else margin + length / 2
     centers = []
 
     for r in range(rows):
         offset = x_gap / 2 if r % 2 and even_cols > 1 else 0
-        cols = max(1, int(math.floor((width - offset) / x_gap)) + 1) if x_gap else 1
-        x0 = margin + offset if cols > 1 else margin + width / 2
+        cols = fit_count(width, x_gap, offset) if x_gap else 1
+        if cols <= 0:
+            continue
+        x0 = margin + offset if x_gap else margin + width / 2
         y = y0 + r * y_gap
         for c in range(cols):
             x = x0 + c * x_gap
             if margin - 0.001 <= x <= margin + width + 0.001:
                 centers.append((x, y))
     return centers
+
+
+def generate_hex_along_length(width, length, distance, margin):
+    transposed = generate_hex(length, width, distance, 0)
+    centers = [(margin + y, margin + x) for x, y in transposed]
+    centers.sort(key=lambda point: (point[1], point[0]))
+    return centers
+
+
+def generate_hex_oriented(width, length, distance, margin, orientation):
+    if orientation == "length":
+        return generate_hex_along_length(width, length, distance, margin)
+    return generate_hex(width, length, distance, margin)
+
+
+def generate_layout_option(width, length, distance, margin, option):
+    if option == "grid":
+        return generate_grid(width, length, distance, margin)
+    orientation = "length" if option == "hex_length" else "width"
+    return generate_hex_oriented(width, length, distance, margin, orientation)
+
+
+def rank_layout_options(width, length, distance, margin, radius):
+    ranked = []
+    for order, option in enumerate(layout_options):
+        centers = generate_layout_option(width, length, distance, margin, option)
+        overlap = overlap_area_ratio(centers, radius)
+        ranked.append({
+            "option": option,
+            "centers": centers,
+            "count": len(centers),
+            "overlap": overlap,
+            "order": order,
+        })
+    ranked.sort(key=lambda item: (-item["count"], item["overlap"], item["order"]))
+    return ranked
+
+
+def centers_match(first, second):
+    if len(first) != len(second):
+        return False
+    for (x1, y1), (x2, y2) in zip(first, second):
+        if abs(x1 - x2) > 0.001 or abs(y1 - y2) > 0.001:
+            return False
+    return True
 
 
 def nearest_distances(centers):
@@ -484,17 +702,31 @@ def build_csv(centers, nearest):
     return "\n".join(lines)
 
 
+def update_layout_choices(selected_option, best_option):
+    for option in layout_options:
+        node = by_id(layout_node_ids[option])
+        is_selected = option == selected_option
+        is_best = option == best_option
+        if is_selected:
+            node.classList.add("is-selected")
+        else:
+            node.classList.remove("is-selected")
+        if is_best:
+            node.classList.add("is-best")
+        else:
+            node.classList.remove("is-best")
+        node.setAttribute("aria-current", "true" if is_selected else "false")
+
+
 def render(*args):
     global last_csv
     state = read_state()
     center_inset = state["margin"] + state["radius"]
     usable_w = max(0, state["field_width"] - 2 * center_inset)
     usable_l = max(0, state["field_length"] - 2 * center_inset)
-
-    if state["mode"] == "grid":
-        centers = generate_grid(usable_w, usable_l, state["distance"], center_inset)
-    else:
-        centers = generate_hex(usable_w, usable_l, state["distance"], center_inset)
+    ranked_layouts = rank_layout_options(usable_w, usable_l, state["distance"], center_inset, state["radius"])
+    best_layout = ranked_layouts[0]
+    centers = generate_layout_option(usable_w, usable_l, state["distance"], center_inset, state["layout_option"])
 
     nearest = nearest_distances(centers)
     overlap = overlap_area_ratio(centers, state["radius"])
@@ -509,12 +741,20 @@ def render(*args):
     by_id("marginValue").textContent = f"{fmt(state['margin'])} m"
     by_id("courtCount").textContent = str(len(centers))
     by_id("overlapValue").textContent = fmt_percent(overlap)
-    by_id("usableValue").textContent = f"{fmt(usable_w)} x {fmt(usable_l)} m"
+    update_layout_choices(state["layout_option"], best_layout["option"])
 
     draw_svg(state, centers, nearest)
     render_recipe(state)
     last_csv = build_csv(centers, nearest)
-    by_id("status").textContent = "Ready"
+    status = "Ready"
+    if state["mode"] == "hex":
+        other_option = "hex_length" if state["layout_option"] == "hex_width" else "hex_width"
+        other_centers = generate_layout_option(usable_w, usable_l, state["distance"], center_inset, other_option)
+        if centers_match(centers, other_centers):
+            status = "Both hex orientations are identical with these constraints."
+        elif state["layout_option"] == "hex_width" and usable_w < 2 * state["distance"]:
+            status = "Only two centers fit across the width, so rows can still look length-aligned."
+    by_id("status").textContent = status
 
 
 def download_csv(*args):
@@ -534,7 +774,7 @@ async def copy_csv(*args):
 
 
 for node_id in state_ids:
-    event_name = "change" if node_id == "layoutMode" else "input"
+    event_name = "change" if node_id in layout_input_ids.values() else "input"
     by_id(node_id).addEventListener(event_name, create_proxy(render))
 
 by_id("downloadCsv").addEventListener("click", create_proxy(download_csv))

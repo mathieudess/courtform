@@ -127,6 +127,100 @@ select {
   padding: 10px 12px;
 }
 
+.layout-picker {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.layout-picker legend {
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 0;
+}
+
+.layout-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.layout-option {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 84px;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--muted);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 8px 5px 7px;
+}
+
+.layout-option input {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.layout-icon {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.layout-name {
+  max-width: 100%;
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  text-align: center;
+}
+
+.layout-option.is-selected {
+  border-color: var(--ink);
+  background: rgba(186, 215, 189, 0.42);
+  color: var(--ink);
+}
+
+.layout-option.is-best {
+  box-shadow: 0 0 0 2px rgba(224, 92, 59, 0.44);
+}
+
+.best-badge {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  display: none;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  padding: 3px 4px;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.layout-option.is-best .best-badge {
+  display: block;
+}
+
 .settings {
   border-top: 1px solid var(--line);
   padding-top: 4px;
