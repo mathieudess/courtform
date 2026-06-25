@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CourtForm</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+</head>
+
+<body>
+    <main class="app-shell">
+        <section class="panel controls" aria-label="Layout controls">
+            <div class="brand">
+                <p class="eyebrow">CourtForm</p>
+                <h1>Roundnet court layout planner</h1>
+            </div>
+
+            <div class="control-grid">
+                <label class="field">
+                    <span>Field width</span>
+                    <output id="fieldWidthValue">40 m</output>
+                    <input id="fieldWidth" type="range" min="10" max="90" value="40" step="1" />
+                </label>
+
+                <label class="field">
+                    <span>Field length</span>
+                    <output id="fieldLengthValue">60 m</output>
+                    <input id="fieldLength" type="range" min="10" max="120" value="60" step="1" />
+                </label>
+
+                <label class="field">
+                    <span>Minimum center distance</span>
+                    <output id="centerDistanceValue">12 m</output>
+                    <input id="centerDistance" type="range" min="11" max="18" value="12" step="0.1" />
+                </label>
+
+                <label class="field">
+                    <span>Layout</span>
+                    <select id="layoutMode">
+                        <option value="hex">Hexagonal</option>
+                        <option value="grid">Grid</option>
+                    </select>
+                </label>
+            </div>
+
+            <details class="settings">
+                <summary>Settings</summary>
+                <div class="settings-body">
+                    <label class="field">
+                        <span>Out of bounds radius</span>
+                        <output id="courtRadiusValue">8.5 m</output>
+                        <input id="courtRadius" type="range" min="1.5" max="12.5" value="8.5" step="0.25" />
+                    </label>
+
+                    <label class="field">
+                        <span>NHZ radius</span>
+                        <output id="nhzRadiusValue">1 m</output>
+                        <input id="nhzRadius" type="range" min="0" max="12.5" value="1" step="0.01" />
+                    </label>
+
+                    <label class="field">
+                        <span>Set radius</span>
+                        <output id="setRadiusValue">0.91 m</output>
+                        <input id="setRadius" type="range" min="0" max="12.5" value="0.91" step="0.01" />
+                    </label>
+
+                    <label class="field">
+                        <span>Service line radius</span>
+                        <output id="serviceRadiusValue">2.59 m</output>
+                        <input id="serviceRadius" type="range" min="0" max="12.5" value="2.59" step="0.01" />
+                    </label>
+
+                    <label class="field">
+                        <span>Sideline margin</span>
+                        <output id="marginValue">0 m</output>
+                        <input id="margin" type="range" min="0" max="10" value="0" step="0.5" />
+                    </label>
+                </div>
+            </details>
+
+            <div class="stats" aria-label="Layout summary">
+                <div>
+                    <span class="stat-value" id="courtCount">0</span>
+                    <span class="stat-label">courts</span>
+                </div>
+                <div>
+                    <span class="stat-value" id="overlapValue">0%</span>
+                    <span class="stat-label">overlap area</span>
+                </div>
+                <div>
+                    <span class="stat-value" id="usableValue">0 x 0 m</span>
+                    <span class="stat-label">center zone</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="downloadCsv" type="button" title="Download center measurements as CSV">
+                    Download CSV
+                </button>
+                <button id="copyCsv" type="button" title="Copy center measurements to clipboard">
+                    Copy CSV
+                </button>
+            </div>
+            <p class="note" id="status">Loading Python layout engine...</p>
+        </section>
+
+        <section class="workspace" aria-label="Layout visualization">
+            <div class="canvas-wrap">
+                <svg id="courtSvg" role="img" aria-label="Court layout drawing"></svg>
+            </div>
+
+            <div class="panel measurements">
+                <div class="table-heading">
+                    <h2>Draw recipe</h2>
+                    <p>Measure from the field edge to the first center, then repeat.</p>
+                </div>
+                <div class="recipe-list" id="measurementRows"></div>
+            </div>
+        </section>
+    </main>
+
+    <script id="python-app" type="text/python">
+from js import document, Blob, URL, navigator
+from pyodide.ffi import create_proxy
+import math
+
+state_ids = [
+    "fieldWidth",
+    "fieldLength",
+    "courtRadius",
+    "nhzRadius",
+    "setRadius",
+    "serviceRadius",
+    "centerDistance",
+    "margin",
+    "layoutMode",
+]
+
+last_csv = ""
+
+
+def el(selector):
+    return document.querySelector(selector)
+
+
+def by_id(node_id):
+    return document.getElementById(node_id)
+
+
+def fmt(value):
+    if abs(value - round(value)) < 0.001:
+        return str(int(round(value)))
+    return f"{value:.1f}"
+
+
+def read_state():
+    return {
+        "field_width": float(by_id("fieldWidth").value),
+        "field_length": float(by_id("fieldLength").value),
+        "radius": float(by_id("courtRadius").value),
+        "nhz_radius": float(by_id("nhzRadius").value),
+        "set_radius": float(by_id("setRadius").value),
+        "service_radius": float(by_id("serviceRadius").value),
+        "distance": float(by_id("centerDistance").value),
+        "margin": float(by_id("margin").value),
+        "mode": by_id("layoutMode").value,
+    }
+
+
+def layout_recipe(state):
+    center_inset = state["margin"] + state["radius"]
+    usable_w = max(0, state["field_width"] - 2 * center_inset)
+    usable_l = max(0, state["field_length"] - 2 * center_inset)
+
+    if state["mode"] == "grid":
+        cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
+        rows = max(1, int(math.floor(usable_l / state["distance"])) + 1)
+        x_gap = usable_w / (cols - 1) if cols > 1 else 0
+        y_gap = usable_l / (rows - 1) if rows > 1 else 0
+        return [
+            ("Repeat across", x_gap),
+            ("Repeat up", y_gap),
+        ]
+
+    cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
+    x_gap = usable_w / (cols - 1) if cols > 1 else 0
+    if x_gap > 0:
+        min_row_gap = max(state["distance"] / 2, math.sqrt(max(0, state["distance"] * state["distance"] - (x_gap / 2) ** 2)))
+    else:
+        min_row_gap = state["distance"]
+    rows = max(1, int(math.floor(usable_l / min_row_gap)) + 1)
+    y_gap = usable_l / (rows - 1) if rows > 1 else 0
+    second_row = center_inset + y_gap if rows > 1 else center_inset
+    return [
+        ("Repeat across", x_gap),
+        ("Row 2 from sideline", second_row),
+        ("Repeat rows up", y_gap),
+    ]
+
+
+def layout_guides(state):
+    center_inset = state["margin"] + state["radius"]
+    usable_w = max(0, state["field_width"] - 2 * center_inset)
+    usable_l = max(0, state["field_length"] - 2 * center_inset)
+
+    if state["mode"] == "grid":
+        cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
+        rows = max(1, int(math.floor(usable_l / state["distance"])) + 1)
+        x_gap = usable_w / (cols - 1) if cols > 1 else 0
+        y_gap = usable_l / (rows - 1) if rows > 1 else 0
+        x_start = center_inset if cols > 1 else center_inset + usable_w / 2
+        y_start = center_inset if rows > 1 else center_inset + usable_l / 2
+        guides = [
+            {"axis": "x", "track": 0, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap},
+            {"axis": "y", "track": 0, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap},
+        ]
+        return guides
+
+    cols = max(1, int(math.floor(usable_w / state["distance"])) + 1)
+    x_gap = usable_w / (cols - 1) if cols > 1 else 0
+    if x_gap > 0:
+        min_row_gap = max(state["distance"] / 2, math.sqrt(max(0, state["distance"] * state["distance"] - (x_gap / 2) ** 2)))
+    else:
+        min_row_gap = state["distance"]
+    rows = max(1, int(math.floor(usable_l / min_row_gap)) + 1)
+    y_gap = usable_l / (rows - 1) if rows > 1 else 0
+    x_start = center_inset if cols > 1 else center_inset + usable_w / 2
+    y_start = center_inset if rows > 1 else center_inset + usable_l / 2
+    second_row = y_start + y_gap if rows > 1 else y_start
+    return [
+        {"axis": "x", "track": 0, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap},
+        {"axis": "y", "track": 0, "from": 0, "to": second_row, "label": f"{second_row:.2f} m", "value": second_row},
+        {"axis": "y", "track": 1, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap},
+    ]
+
+
+def generate_grid(width, length, distance, margin):
+    if width <= 0 or length <= 0:
+        return []
+    cols = max(1, int(math.floor(width / distance)) + 1)
+    rows = max(1, int(math.floor(length / distance)) + 1)
+    x_gap = width / (cols - 1) if cols > 1 else 0
+    y_gap = length / (rows - 1) if rows > 1 else 0
+    x0 = margin if cols > 1 else margin + width / 2
+    y0 = margin if rows > 1 else margin + length / 2
+    return [(x0 + c * x_gap, y0 + r * y_gap) for r in range(rows) for c in range(cols)]
+
+
+def generate_hex(width, length, distance, margin):
+    if width <= 0 or length <= 0:
+        return []
+    even_cols = max(1, int(math.floor(width / distance)) + 1)
+    x_gap = width / (even_cols - 1) if even_cols > 1 else 0
+    if x_gap > 0:
+        min_row_gap = max(distance / 2, math.sqrt(max(0, distance * distance - (x_gap / 2) ** 2)))
+    else:
+        min_row_gap = distance
+    rows = max(1, int(math.floor(length / min_row_gap)) + 1)
+    y_gap = length / (rows - 1) if rows > 1 else 0
+    y0 = margin if rows > 1 else margin + length / 2
+    centers = []
+
+    for r in range(rows):
+        offset = x_gap / 2 if r % 2 and even_cols > 1 else 0
+        cols = max(1, int(math.floor((width - offset) / x_gap)) + 1) if x_gap else 1
+        x0 = margin + offset if cols > 1 else margin + width / 2
+        y = y0 + r * y_gap
+        for c in range(cols):
+            x = x0 + c * x_gap
+            if margin - 0.001 <= x <= margin + width + 0.001:
+                centers.append((x, y))
+    return centers
+
+
+def nearest_distances(centers):
+    result = []
+    for i, (x1, y1) in enumerate(centers):
+        nearest = None
+        for j, (x2, y2) in enumerate(centers):
+            if i == j:
+                continue
+            dist = math.hypot(x1 - x2, y1 - y2)
+            nearest = dist if nearest is None else min(nearest, dist)
+        result.append(nearest)
+    return result
+
+
+def circle_intersection_area(radius, distance):
+    if radius <= 0 or distance >= 2 * radius:
+        return 0
+    if distance <= 0:
+        return math.pi * radius * radius
+    return (
+        2 * radius * radius * math.acos(distance / (2 * radius))
+        - 0.5 * distance * math.sqrt(max(0, 4 * radius * radius - distance * distance))
+    )
+
+
+def overlap_area_ratio(centers, radius):
+    if radius <= 0 or not centers:
+        return 0
+    overlap_area = 0
+    for i, (x1, y1) in enumerate(centers):
+        for x2, y2 in centers[i + 1:]:
+            overlap_area += circle_intersection_area(radius, math.hypot(x1 - x2, y1 - y2))
+    total_area = len(centers) * math.pi * radius * radius
+    return overlap_area / total_area if total_area else 0
+
+
+def fmt_percent(value):
+    return f"{value * 100:.1f}%"
+
+
+def svg_node(name, attrs):
+    node = document.createElementNS("http://www.w3.org/2000/svg", name)
+    for key, value in attrs.items():
+        node.setAttribute(key, str(value))
+    return node
+
+
+def add_guide(svg, guide, pad, field_length):
+    track = guide["track"]
+    track_offset = 1.1 + track * 1.4
+    if guide["axis"] == "x":
+        x1 = pad + guide["from"]
+        x2 = pad + guide["to"]
+        y1 = pad + field_length + track_offset
+        y2 = y1
+        label_x = (x1 + x2) / 2
+        label_y = y1 + 0.95
+    else:
+        x1 = pad - track_offset
+        x2 = x1
+        y1 = pad + field_length - guide["from"]
+        y2 = pad + field_length - guide["to"]
+        label_x = x1 - 0.65
+        label_y = (y1 + y2) / 2
+    line = svg_node("line", {
+        "x1": x1,
+        "y1": y1,
+        "x2": x2,
+        "y2": y2,
+        "class": f"guide-line guide-track-{track}",
+    })
+    svg.appendChild(line)
+
+    label = svg_node("text", {
+        "x": label_x,
+        "y": label_y,
+        "class": f"guide-label guide-label-{guide['axis']} guide-track-{track}",
+        "text-anchor": "middle",
+    })
+    label.textContent = guide["label"]
+    svg.appendChild(label)
+
+    for px, py in [(x1, y1), (x2, y2)]:
+        dot = svg_node("circle", {
+            "cx": px,
+            "cy": py,
+            "r": 0.14,
+            "class": "guide-point",
+        })
+        svg.appendChild(dot)
+
+
+def draw_svg(state, centers, nearest):
+    svg = by_id("courtSvg")
+    svg.replaceChildren()
+
+    width = state["field_width"]
+    length = state["field_length"]
+    radius = state["radius"]
+    margin = state["margin"]
+    center_inset = margin + radius
+    pad = max(width, length) * 0.055
+    view_w = width + 2 * pad
+    view_l = length + 2 * pad
+    svg.setAttribute("viewBox", f"0 0 {view_w} {view_l}")
+
+    field = svg_node("rect", {
+        "x": pad,
+        "y": pad,
+        "width": width,
+        "height": length,
+        "rx": 0.45,
+        "class": "field-rect",
+    })
+    svg.appendChild(field)
+
+    if center_inset > 0:
+        usable_w = max(0, width - 2 * center_inset)
+        usable_l = max(0, length - 2 * center_inset)
+        usable = svg_node("rect", {
+            "x": pad + center_inset,
+            "y": pad + center_inset,
+            "width": usable_w,
+            "height": usable_l,
+            "class": "usable-rect",
+        })
+        svg.appendChild(usable)
+
+    for guide in layout_guides(state):
+        add_guide(svg, guide, pad, length)
+
+    for idx, ((x, y), near) in enumerate(zip(centers, nearest), start=1):
+        cx = pad + x
+        cy = pad + length - y
+        circle = svg_node("circle", {
+            "cx": cx,
+            "cy": cy,
+            "r": radius,
+            "class": "court-circle",
+        })
+        svg.appendChild(circle)
+
+        for ring_radius, ring_class in [
+            (state["service_radius"], "service-circle"),
+            (state["nhz_radius"], "nhz-circle"),
+            (state["set_radius"], "set-circle"),
+        ]:
+            if ring_radius > 0:
+                ring = svg_node("circle", {
+                    "cx": cx,
+                    "cy": cy,
+                    "r": ring_radius,
+                    "class": f"court-ring {ring_class}",
+                })
+                svg.appendChild(ring)
+
+        dot = svg_node("circle", {
+            "cx": cx,
+            "cy": cy,
+            "r": max(0.14, min(width, length) * 0.006),
+            "class": "center-dot",
+        })
+        svg.appendChild(dot)
+
+        label = svg_node("text", {
+            "x": cx,
+            "y": cy - max(0.35, radius * 0.16),
+            "class": "center-label",
+            "text-anchor": "middle",
+        })
+        label.textContent = str(idx)
+        svg.appendChild(label)
+
+    labels = [
+        (pad + width / 2, pad - pad * 0.25, f"{fmt(width)} m"),
+        (pad - pad * 0.38, pad + length / 2, f"{fmt(length)} m"),
+    ]
+    for x, y, text in labels:
+        label = svg_node("text", {"x": x, "y": y, "class": "dimension-label", "text-anchor": "middle"})
+        label.textContent = text
+        svg.appendChild(label)
+
+
+def render_recipe(state):
+    body = by_id("measurementRows")
+    body.replaceChildren()
+    for label, value in layout_recipe(state):
+        row = document.createElement("div")
+        row.className = "recipe-row"
+        text = document.createElement("div")
+        text.className = "recipe-label"
+        text.textContent = label
+        val = document.createElement("div")
+        val.className = "recipe-value"
+        if value > 0:
+            val.textContent = f"{fmt(value)} m"
+        else:
+            val.textContent = "-"
+        row.appendChild(text)
+        row.appendChild(val)
+        body.appendChild(row)
+
+
+def build_csv(centers, nearest):
+    lines = ["court,x_m,y_m,nearest_center_m"]
+    for idx, ((x, y), near) in enumerate(zip(centers, nearest), start=1):
+        near_text = "" if near is None else f"{near:.2f}"
+        lines.append(f"{idx},{x:.2f},{y:.2f},{near_text}")
+    return "\n".join(lines)
+
+
+def render(*args):
+    global last_csv
+    state = read_state()
+    center_inset = state["margin"] + state["radius"]
+    usable_w = max(0, state["field_width"] - 2 * center_inset)
+    usable_l = max(0, state["field_length"] - 2 * center_inset)
+
+    if state["mode"] == "grid":
+        centers = generate_grid(usable_w, usable_l, state["distance"], center_inset)
+    else:
+        centers = generate_hex(usable_w, usable_l, state["distance"], center_inset)
+
+    nearest = nearest_distances(centers)
+    overlap = overlap_area_ratio(centers, state["radius"])
+
+    by_id("fieldWidthValue").textContent = f"{fmt(state['field_width'])} m"
+    by_id("fieldLengthValue").textContent = f"{fmt(state['field_length'])} m"
+    by_id("courtRadiusValue").textContent = f"{fmt(state['radius'])} m"
+    by_id("nhzRadiusValue").textContent = f"{fmt(state['nhz_radius'])} m"
+    by_id("setRadiusValue").textContent = f"{fmt(state['set_radius'])} m"
+    by_id("serviceRadiusValue").textContent = f"{fmt(state['service_radius'])} m"
+    by_id("centerDistanceValue").textContent = f"{fmt(state['distance'])} m"
+    by_id("marginValue").textContent = f"{fmt(state['margin'])} m"
+    by_id("courtCount").textContent = str(len(centers))
+    by_id("overlapValue").textContent = fmt_percent(overlap)
+    by_id("usableValue").textContent = f"{fmt(usable_w)} x {fmt(usable_l)} m"
+
+    draw_svg(state, centers, nearest)
+    render_recipe(state)
+    last_csv = build_csv(centers, nearest)
+    by_id("status").textContent = "Ready"
+
+
+def download_csv(*args):
+    blob = Blob.new([last_csv], {"type": "text/csv;charset=utf-8"})
+    url = URL.createObjectURL(blob)
+    link = document.createElement("a")
+    link.href = url
+    link.download = "court-centers.csv"
+    link.click()
+    URL.revokeObjectURL(url)
+
+
+async def copy_csv(*args):
+    if navigator.clipboard:
+        await navigator.clipboard.writeText(last_csv)
+        by_id("status").textContent = "CSV copied to clipboard"
+
+
+for node_id in state_ids:
+    event_name = "change" if node_id == "layoutMode" else "input"
+    by_id(node_id).addEventListener(event_name, create_proxy(render))
+
+by_id("downloadCsv").addEventListener("click", create_proxy(download_csv))
+by_id("copyCsv").addEventListener("click", create_proxy(copy_csv))
+render()
+    </script>
+
+    <script>
+        async function startPythonApp() {
+            const pyodide = await loadPyodide();
+            await pyodide.runPythonAsync(document.getElementById("python-app").textContent);
+        }
+
+        startPythonApp().catch((error) => {
+            document.getElementById("status").textContent =
+                "Could not start the Python engine. Check the browser console.";
+            console.error(error);
+        });
+    </script>
+</body>
+
+</html>
