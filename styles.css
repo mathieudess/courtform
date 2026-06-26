@@ -93,6 +93,7 @@ h2 {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .brand-mark {
@@ -120,36 +121,13 @@ h2 {
   font-size: 0.88rem;
 }
 
-.eyebrow {
-  margin: 0 0 8px;
-  color: var(--accent-dark);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.section-tag {
-  margin-bottom: 6px;
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-}
-
-.status-chip {
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #f7fafc;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 7px 10px;
 }
 
 button {
@@ -230,7 +208,6 @@ button:hover {
 
 .settings-header,
 .section-heading,
-.controls-heading,
 .visual-heading {
   display: flex;
   align-items: flex-start;
@@ -245,9 +222,7 @@ button:hover {
 
 .settings-header p,
 .section-heading p,
-.controls-heading p,
-.visual-note,
-.card-note {
+.visual-note {
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 0.86rem;
@@ -308,7 +283,6 @@ input[type="number"] {
   gap: 12px;
 }
 
-.spacing-panel,
 .visual-panel,
 .summary-panel,
 .mode-panel,
@@ -327,6 +301,12 @@ input[type="number"] {
 .visual-note {
   max-width: 280px;
   text-align: right;
+}
+
+.visual-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
 }
 
 .visual-body {
@@ -464,11 +444,22 @@ input[type="number"] {
   gap: 10px;
 }
 
+.summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .summary-heading h2 {
-  font-size: 1.06rem;
+  font-size: 1.02rem;
 }
 
 .court-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: end;
+  column-gap: 10px;
+  row-gap: 6px;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--accent) 0%, #4a89eb 100%);
   color: #ffffff;
@@ -477,22 +468,21 @@ input[type="number"] {
 }
 
 .hero-value {
-  display: block;
   font-size: clamp(3.3rem, 7vw, 4.6rem);
   font-weight: 800;
-  line-height: 0.9;
+  line-height: 0.86;
 }
 
 .hero-label {
-  display: block;
-  margin-top: 6px;
-  font-size: 0.8rem;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .hero-note {
-  margin: 8px 0 0;
+  grid-column: 1 / -1;
+  margin: 0;
   color: rgba(255, 255, 255, 0.92);
   font-size: 0.82rem;
   line-height: 1.45;
@@ -532,7 +522,6 @@ input[type="number"] {
   text-transform: uppercase;
 }
 
-.spacing-panel,
 .mode-panel,
 .controls-panel {
   display: grid;
@@ -800,15 +789,6 @@ input[type="range"] {
     padding: 14px;
   }
 
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .topbar-actions {
-    justify-content: space-between;
-  }
-
   .page-grid {
     grid-template-columns: 1fr;
     min-height: 0;
@@ -825,6 +805,15 @@ input[type="range"] {
 }
 
 @media (max-width: 760px) {
+  .topbar {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .brand-copy p {
+    display: none;
+  }
+
   .settings-card {
     width: min(420px, calc(100vw - 28px));
   }
@@ -836,6 +825,10 @@ input[type="range"] {
 
   .visual-heading {
     display: grid;
+  }
+
+  .visual-actions {
+    justify-items: start;
   }
 
   .visual-note {
@@ -869,6 +862,7 @@ input[type="range"] {
 
   .brand-block {
     align-items: flex-start;
+    gap: 10px;
   }
 
   .brand-mark {
@@ -876,13 +870,17 @@ input[type="range"] {
     height: 40px;
   }
 
-  .status-chip {
-    width: 100%;
+  .brand-copy h1 {
+    font-size: 1.35rem;
+  }
+
+  .visual-heading {
+    gap: 8px;
   }
 
   .visual-body {
-    grid-template-columns: minmax(0, 1fr) minmax(110px, 33vw);
-    gap: 8px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
 
   .visual-meta {
@@ -898,12 +896,12 @@ input[type="range"] {
   }
 
   .compact-heading p,
-  .card-note,
   .visual-note {
     font-size: 0.72rem;
   }
 
   .legend-strip {
+    justify-content: flex-start;
     gap: 6px 8px;
   }
 
@@ -912,18 +910,35 @@ input[type="range"] {
     gap: 5px;
   }
 
+  .measurements {
+    order: 2;
+  }
+
   .recipe-label,
   .recipe-value {
     font-size: 0.72rem;
   }
 
-  .layout-options,
   .stats {
     grid-template-columns: 1fr;
   }
 
+  .layout-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .layout-option {
-    min-height: 84px;
+    min-height: 76px;
+    padding: 7px 5px;
+  }
+
+  .layout-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .layout-name {
+    font-size: 0.68rem;
   }
 
   .canvas-wrap {

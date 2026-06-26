@@ -24,15 +24,11 @@
                 </div>
                 <div class="brand-copy">
                     <h1>CourtForm</h1>
-                    <p>Fit roundnet courts inside your fields with visual draw guides.</p>
+                    <p>Roundnet court layouts for any field.</p>
                 </div>
             </div>
 
             <div class="topbar-actions">
-                <p class="status-chip" id="status">Ready</p>
-
-                <button id="printLayout" class="ghost-button print-button" type="button">Print layout</button>
-
                 <details class="settings-popover">
                     <summary class="icon-button" aria-label="Court settings">
                         <svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -82,10 +78,12 @@
                 <section class="panel visual-panel">
                     <div class="visual-heading">
                         <div>
-                            <p class="eyebrow section-tag">Visualization</p>
                             <h2>Field layout</h2>
                         </div>
-                        <p class="visual-note">Print-ready view with edge measurements for the first setup marks.</p>
+                        <div class="visual-actions">
+                            <p class="visual-note">Print view with setup marks.</p>
+                            <button id="printLayout" class="ghost-button print-button" type="button">Print layout</button>
+                        </div>
                     </div>
 
                     <div class="legend-strip" aria-label="Court line key">
@@ -104,7 +102,6 @@
                             <section class="measurements">
                                 <div class="section-heading compact-heading">
                                     <h2>Draw recipe</h2>
-                                    <p>Mark the anchors, then repeat the pattern.</p>
                                 </div>
                                 <div class="recipe-list" id="measurementRows"></div>
                             </section>
@@ -114,55 +111,42 @@
             </div>
 
             <aside class="control-rail">
-                <section class="panel spacing-panel" aria-label="Primary spacing control">
-                    <div class="section-heading">
-                        <div>
-                            <h2>Minimum center distance</h2>
-                        </div>
-                        <p class="card-note">This is the main value to tweak while watching the court update.</p>
+                <section class="panel summary-panel">
+                    <div class="summary-heading">
+                        <h2>Courts</h2>
                     </div>
 
                     <label class="field field-priority">
-                        <span>Minimum center distance</span>
+                        <span>Min center distance</span>
                         <output id="centerDistanceValue">12 m</output>
                         <input id="centerDistance" type="range" min="11" max="18" value="12" step="0.1" />
                     </label>
-                </section>
-
-                <section class="panel summary-panel">
-                    <div class="summary-heading">
-                        <p class="eyebrow section-tag">Summary</p>
-                        <h2>Total courts</h2>
-                    </div>
 
                     <div class="court-hero">
                         <span class="hero-value" id="courtCount">0</span>
-                        <span class="hero-label">courts fit</span>
-                        <p class="hero-note" id="bestLayoutValue">Best setup updates live.</p>
+                        <span class="hero-label">courts</span>
+                        <p class="hero-note" id="bestLayoutValue">Best layout</p>
                     </div>
 
                     <div class="stats" aria-label="Layout summary">
                         <div>
                             <span class="stat-value" id="overlapValue">0%</span>
-                            <span class="stat-label">overlap area</span>
+                            <span class="stat-label">overlap</span>
                         </div>
                         <div>
                             <span class="stat-value" id="minSpacingValue">-</span>
-                            <span class="stat-label">actual min spacing</span>
+                            <span class="stat-label">min spacing</span>
                         </div>
                         <div>
                             <span class="stat-value" id="usableValue">0 x 0 m</span>
-                            <span class="stat-label">center zone</span>
+                            <span class="stat-label">usable zone</span>
                         </div>
                     </div>
                 </section>
 
                 <section class="panel mode-panel" aria-label="Layout choice">
                     <div class="section-heading">
-                        <div>
-                            <p class="eyebrow section-tag">Packing mode</p>
-                        </div>
-                        <p class="card-note">Grid or hex, with the strongest option highlighted live.</p>
+                        <h2>Mode</h2>
                     </div>
 
                     <fieldset class="layout-picker" aria-label="Layout">
@@ -220,12 +204,8 @@
                 </section>
 
                 <section class="panel controls-panel" aria-label="Layout controls">
-                    <div class="section-heading controls-heading">
-                        <div>
-                            <p class="eyebrow section-tag">Field inputs</p>
-                            <h2>Field dimensions</h2>
-                        </div>
-                        <p class="card-note">Field size and sideline room for the available rectangle.</p>
+                    <div class="section-heading">
+                        <h2>Field</h2>
                     </div>
 
                     <div class="control-grid">
@@ -615,14 +595,6 @@
                 .sort((a, b) => b.count - a.count || a.overlap - b.overlap || a.order - b.order);
         }
 
-        function centersMatch(first, second) {
-            if (first.length !== second.length) return false;
-            return first.every(([x1, y1], index) => {
-                const [x2, y2] = second[index];
-                return Math.abs(x1 - x2) <= 0.001 && Math.abs(y1 - y2) <= 0.001;
-            });
-        }
-
         function svgNode(name, attrs) {
             const node = document.createElementNS("http://www.w3.org/2000/svg", name);
             Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
@@ -820,23 +792,11 @@
             byId("overlapValue").textContent = fmtPercent(overlap);
             byId("minSpacingValue").textContent = actualSpacing === Infinity ? "-" : `${fmt(actualSpacing)} m`;
             byId("usableValue").textContent = `${fmt(usableW)} x ${fmt(usableL)} m`;
-            byId("bestLayoutValue").textContent = `Best right now: ${layoutLabels[bestLayout.option]} with ${bestLayout.count} courts`;
+            byId("bestLayoutValue").textContent = `Best: ${layoutLabels[bestLayout.option]} · ${bestLayout.count}`;
             updateLayoutChoices(state.layout_option, bestLayout.option);
 
             drawSvg(state, centers);
             renderRecipe(state);
-
-            let status = "Ready";
-            if (state.mode === "hex") {
-                const otherOption = state.layout_option === "hex_width" ? "hex_length" : "hex_width";
-                const otherCenters = generateLayoutOption(usableW, usableL, state.distance, centerInset, otherOption);
-                if (centersMatch(centers, otherCenters)) {
-                    status = "Both hex orientations are identical with these constraints.";
-                } else if (state.layout_option === "hex_width" && usableW < 2 * state.distance) {
-                    status = "Only two centers fit across the width, so rows can still look length-aligned.";
-                }
-            }
-            byId("status").textContent = status;
         }
 
         stateIds.forEach((nodeId) => {
