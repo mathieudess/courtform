@@ -5,166 +5,274 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CourtForm</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 </head>
 
 <body>
     <main class="app-shell">
-        <section class="panel controls" aria-label="Layout controls">
-            <div class="brand">
-                <p class="eyebrow">CourtForm</p>
-                <h1>Roundnet court layout planner</h1>
+        <header class="topbar">
+            <div class="brand-block">
+                <div class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 64 64">
+                        <rect width="64" height="64" rx="14" fill="#edf5ed"></rect>
+                        <rect x="7" y="7" width="50" height="50" rx="10" fill="#bad7bd" stroke="#6a986f" stroke-width="3"></rect>
+                        <circle cx="32" cy="32" r="15" fill="none" stroke="#e05c3b" stroke-width="3.5"></circle>
+                        <circle cx="32" cy="32" r="9" fill="none" stroke="#1b7f8f" stroke-width="2"></circle>
+                        <circle cx="32" cy="32" r="4" fill="#12201d"></circle>
+                    </svg>
+                </div>
+                <div class="brand-copy">
+                    <h1>CourtForm</h1>
+                    <p>Fit roundnet courts inside your fields with visual draw guides.</p>
+                </div>
             </div>
 
-            <div class="control-grid">
-                <label class="field">
-                    <span>Field width</span>
-                    <output id="fieldWidthValue">40 m</output>
-                    <input id="fieldWidth" type="range" min="10" max="90" value="40" step="1" />
-                </label>
+            <div class="topbar-actions">
+                <p class="status-chip" id="status">Loading Python layout engine...</p>
 
-                <label class="field">
-                    <span>Field length</span>
-                    <output id="fieldLengthValue">60 m</output>
-                    <input id="fieldLength" type="range" min="10" max="120" value="60" step="1" />
-                </label>
+                <button id="printLayout" class="ghost-button print-button" type="button">Print layout</button>
 
-                <label class="field">
-                    <span>Minimum center distance</span>
-                    <output id="centerDistanceValue">12 m</output>
-                    <input id="centerDistance" type="range" min="11" max="18" value="12" step="0.1" />
-                </label>
+                <details class="settings-popover">
+                    <summary class="icon-button" aria-label="Court settings">
+                        <svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                                d="M10.3 2.5h3.4l.6 2.2c.5.2 1 .4 1.5.6l2-1.2 2.4 2.4-1.2 2c.3.5.5 1 .6 1.5l2.2.6v3.4l-2.2.6c-.2.5-.4 1-.6 1.5l1.2 2-2.4 2.4-2-1.2c-.5.3-1 .5-1.5.6l-.6 2.2h-3.4l-.6-2.2c-.5-.2-1-.4-1.5-.6l-2 1.2-2.4-2.4 1.2-2c-.3-.5-.5-1-.6-1.5l-2.2-.6v-3.4l2.2-.6c.2-.5.4-1 .6-1.5l-1.2-2 2.4-2.4 2 1.2c.5-.3 1-.5 1.5-.6zm1.7 6a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7" />
+                        </svg>
+                    </summary>
 
-                <fieldset class="layout-picker" aria-label="Layout">
-                    <legend>Layout</legend>
-                    <div class="layout-options">
-                        <label class="layout-option" id="layoutOptionGrid" title="Grid">
-                            <input id="layoutGrid" type="radio" name="layoutOption" value="grid" />
-                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
-                                <circle cx="10" cy="10" r="3" />
-                                <circle cx="20" cy="10" r="3" />
-                                <circle cx="30" cy="10" r="3" />
-                                <circle cx="10" cy="20" r="3" />
-                                <circle cx="20" cy="20" r="3" />
-                                <circle cx="30" cy="20" r="3" />
-                                <circle cx="10" cy="30" r="3" />
-                                <circle cx="20" cy="30" r="3" />
-                                <circle cx="30" cy="30" r="3" />
-                            </svg>
-                            <span class="layout-name">Grid</span>
-                            <span class="best-badge">Best</span>
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <div>
+                                <h2>Court Settings</h2>
+                                <p>Adjust only the painted court dimensions here.</p>
+                            </div>
+                            <button id="resetSettings" class="ghost-button" type="button">Reset defaults</button>
+                        </div>
+
+                        <div class="settings-body">
+                            <label class="setting-field">
+                                <span>Out of bounds radius</span>
+                                <input id="courtRadius" type="number" min="1.5" max="12.5" step="0.25" value="8.5"
+                                    data-default="8.5" />
+                                <small>Default 8.5 m</small>
+                            </label>
+
+                            <label class="setting-field">
+                                <span>NHZ radius</span>
+                                <input id="nhzRadius" type="number" min="0" max="12.5" step="0.01" value="1"
+                                    data-default="1" />
+                                <small>Default 1.0 m</small>
+                            </label>
+
+                            <label class="setting-field">
+                                <span>Set radius</span>
+                                <input id="setRadius" type="number" min="0" max="12.5" step="0.01" value="0.91"
+                                    data-default="0.91" />
+                                <small>Default 0.91 m</small>
+                            </label>
+
+                            <label class="setting-field">
+                                <span>Service line radius</span>
+                                <input id="serviceRadius" type="number" min="0" max="12.5" step="0.01" value="2.59"
+                                    data-default="2.59" />
+                                <small>Default 2.59 m</small>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </header>
+
+        <section class="page-grid" aria-label="Roundnet court planner">
+            <div class="workspace">
+                <section class="panel visual-panel">
+                    <div class="visual-heading">
+                        <div>
+                            <p class="eyebrow section-tag">Visualization</p>
+                            <h2>Field layout</h2>
+                        </div>
+                        <p class="visual-note">Print-ready view with edge measurements for the first setup marks.</p>
+                    </div>
+
+                    <div class="visual-body">
+                        <div class="canvas-wrap">
+                            <svg id="courtSvg" role="img" aria-label="Court layout drawing"></svg>
+                        </div>
+
+                        <div class="visual-meta">
+                            <section class="legend-block" aria-label="Court line legend">
+                                <div class="section-heading compact-heading">
+                                    <h2>Legend</h2>
+                                </div>
+                                <div class="legend-list">
+                                    <div class="legend-row"><span class="legend-swatch field-swatch"></span><span>Field
+                                            boundary</span></div>
+                                    <div class="legend-row"><span class="legend-swatch bounds-swatch"></span><span>Out
+                                            of bounds</span></div>
+                                    <div class="legend-row"><span
+                                            class="legend-swatch service-swatch"></span><span>Service line</span></div>
+                                    <div class="legend-row"><span
+                                            class="legend-swatch nhz-swatch"></span><span>NHZ</span></div>
+                                    <div class="legend-row"><span class="legend-swatch set-swatch"></span><span>Set
+                                            line</span></div>
+                                </div>
+                            </section>
+
+                            <section class="measurements">
+                                <div class="section-heading compact-heading">
+                                    <h2>Draw recipe</h2>
+                                    <p>Anchor the first row or column, then repeat.</p>
+                                </div>
+                                <div class="recipe-list" id="measurementRows"></div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="control-rail">
+                <section class="panel spacing-panel" aria-label="Primary spacing control">
+                    <div class="section-heading">
+                        <div>
+                            <h2>Minimum center distance</h2>
+                        </div>
+                        <p class="card-note">This is the main value to tweak while watching the court update.</p>
+                    </div>
+
+                    <label class="field field-priority">
+                        <span>Minimum center distance</span>
+                        <output id="centerDistanceValue">12 m</output>
+                        <input id="centerDistance" type="range" min="11" max="18" value="12" step="0.1" />
+                    </label>
+                </section>
+
+                <section class="panel summary-panel">
+                    <div class="summary-heading">
+                        <p class="eyebrow section-tag">Summary</p>
+                        <h2>Total courts</h2>
+                    </div>
+
+                    <div class="court-hero">
+                        <span class="hero-value" id="courtCount">0</span>
+                        <span class="hero-label">courts fit</span>
+                        <p class="hero-note" id="bestLayoutValue">Best setup updates live.</p>
+                    </div>
+
+                    <div class="stats" aria-label="Layout summary">
+                        <div>
+                            <span class="stat-value" id="overlapValue">0%</span>
+                            <span class="stat-label">overlap area</span>
+                        </div>
+                        <div>
+                            <span class="stat-value" id="minSpacingValue">-</span>
+                            <span class="stat-label">actual min spacing</span>
+                        </div>
+                        <div>
+                            <span class="stat-value" id="usableValue">0 x 0 m</span>
+                            <span class="stat-label">center zone</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel mode-panel" aria-label="Layout choice">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow section-tag">Packing mode</p>
+                        </div>
+                        <p class="card-note">Grid or hex, with the strongest option highlighted live.</p>
+                    </div>
+
+                    <fieldset class="layout-picker" aria-label="Layout">
+                        <div class="layout-options">
+                            <label class="layout-option" id="layoutOptionGrid" title="Grid">
+                                <input id="layoutGrid" type="radio" name="layoutOption" value="grid" />
+                                <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle cx="10" cy="10" r="3" />
+                                    <circle cx="20" cy="10" r="3" />
+                                    <circle cx="30" cy="10" r="3" />
+                                    <circle cx="10" cy="20" r="3" />
+                                    <circle cx="20" cy="20" r="3" />
+                                    <circle cx="30" cy="20" r="3" />
+                                    <circle cx="10" cy="30" r="3" />
+                                    <circle cx="20" cy="30" r="3" />
+                                    <circle cx="30" cy="30" r="3" />
+                                </svg>
+                                <span class="layout-name">Grid</span>
+                                <span class="best-badge">Best</span>
+                            </label>
+
+                            <label class="layout-option" id="layoutOptionHexWidth" title="Hex rows across width">
+                                <input id="layoutHexWidth" type="radio" name="layoutOption" value="hex_width" checked />
+                                <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle cx="9" cy="11" r="3" />
+                                    <circle cx="21" cy="11" r="3" />
+                                    <circle cx="33" cy="11" r="3" />
+                                    <circle cx="15" cy="21" r="3" />
+                                    <circle cx="27" cy="21" r="3" />
+                                    <circle cx="9" cy="31" r="3" />
+                                    <circle cx="21" cy="31" r="3" />
+                                    <circle cx="33" cy="31" r="3" />
+                                </svg>
+                                <span class="layout-name">Rows</span>
+                                <span class="best-badge">Best</span>
+                            </label>
+
+                            <label class="layout-option" id="layoutOptionHexLength" title="Hex columns up length">
+                                <input id="layoutHexLength" type="radio" name="layoutOption" value="hex_length" />
+                                <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
+                                    <circle cx="11" cy="9" r="3" />
+                                    <circle cx="11" cy="21" r="3" />
+                                    <circle cx="11" cy="33" r="3" />
+                                    <circle cx="21" cy="15" r="3" />
+                                    <circle cx="21" cy="27" r="3" />
+                                    <circle cx="31" cy="9" r="3" />
+                                    <circle cx="31" cy="21" r="3" />
+                                    <circle cx="31" cy="33" r="3" />
+                                </svg>
+                                <span class="layout-name">Columns</span>
+                                <span class="best-badge">Best</span>
+                            </label>
+                        </div>
+                    </fieldset>
+                </section>
+
+                <section class="panel controls-panel" aria-label="Layout controls">
+                    <div class="section-heading controls-heading">
+                        <div>
+                            <p class="eyebrow section-tag">Field inputs</p>
+                            <h2>Field dimensions</h2>
+                        </div>
+                        <p class="card-note">Field size and sideline room for the available rectangle.</p>
+                    </div>
+
+                    <div class="control-grid">
+                        <label class="field">
+                            <span>Field width</span>
+                            <output id="fieldWidthValue">40 m</output>
+                            <input id="fieldWidth" type="range" min="10" max="90" value="40" step="1" />
                         </label>
 
-                        <label class="layout-option" id="layoutOptionHexWidth" title="Hex rows across width">
-                            <input id="layoutHexWidth" type="radio" name="layoutOption" value="hex_width" checked />
-                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
-                                <circle cx="9" cy="11" r="3" />
-                                <circle cx="21" cy="11" r="3" />
-                                <circle cx="33" cy="11" r="3" />
-                                <circle cx="15" cy="21" r="3" />
-                                <circle cx="27" cy="21" r="3" />
-                                <circle cx="9" cy="31" r="3" />
-                                <circle cx="21" cy="31" r="3" />
-                                <circle cx="33" cy="31" r="3" />
-                            </svg>
-                            <span class="layout-name">Rows</span>
-                            <span class="best-badge">Best</span>
+                        <label class="field">
+                            <span>Field length</span>
+                            <output id="fieldLengthValue">60 m</output>
+                            <input id="fieldLength" type="range" min="10" max="120" value="60" step="1" />
                         </label>
 
-                        <label class="layout-option" id="layoutOptionHexLength" title="Hex columns up length">
-                            <input id="layoutHexLength" type="radio" name="layoutOption" value="hex_length" />
-                            <svg class="layout-icon" viewBox="0 0 40 40" aria-hidden="true">
-                                <circle cx="11" cy="9" r="3" />
-                                <circle cx="11" cy="21" r="3" />
-                                <circle cx="11" cy="33" r="3" />
-                                <circle cx="21" cy="15" r="3" />
-                                <circle cx="21" cy="27" r="3" />
-                                <circle cx="31" cy="9" r="3" />
-                                <circle cx="31" cy="21" r="3" />
-                                <circle cx="31" cy="33" r="3" />
-                            </svg>
-                            <span class="layout-name">Columns</span>
-                            <span class="best-badge">Best</span>
+                        <label class="field field-secondary">
+                            <span>Sideline margin</span>
+                            <output id="marginValue">0 m</output>
+                            <input id="margin" type="range" min="0" max="10" value="0" step="0.5" data-default="0" />
                         </label>
                     </div>
-                </fieldset>
-            </div>
-
-            <details class="settings">
-                <summary>Settings</summary>
-                <div class="settings-body">
-                    <label class="field">
-                        <span>Out of bounds radius</span>
-                        <output id="courtRadiusValue">8.5 m</output>
-                        <input id="courtRadius" type="range" min="1.5" max="12.5" value="8.5" step="0.25" />
-                    </label>
-
-                    <label class="field">
-                        <span>NHZ radius</span>
-                        <output id="nhzRadiusValue">1 m</output>
-                        <input id="nhzRadius" type="range" min="0" max="12.5" value="1" step="0.01" />
-                    </label>
-
-                    <label class="field">
-                        <span>Set radius</span>
-                        <output id="setRadiusValue">0.91 m</output>
-                        <input id="setRadius" type="range" min="0" max="12.5" value="0.91" step="0.01" />
-                    </label>
-
-                    <label class="field">
-                        <span>Service line radius</span>
-                        <output id="serviceRadiusValue">2.59 m</output>
-                        <input id="serviceRadius" type="range" min="0" max="12.5" value="2.59" step="0.01" />
-                    </label>
-
-                    <label class="field">
-                        <span>Sideline margin</span>
-                        <output id="marginValue">0 m</output>
-                        <input id="margin" type="range" min="0" max="10" value="0" step="0.5" />
-                    </label>
-                </div>
-            </details>
-
-            <div class="stats" aria-label="Layout summary">
-                <div>
-                    <span class="stat-value" id="courtCount">0</span>
-                    <span class="stat-label">courts</span>
-                </div>
-                <div>
-                    <span class="stat-value" id="overlapValue">0%</span>
-                    <span class="stat-label">overlap area</span>
-                </div>
-            </div>
-
-            <div class="actions">
-                <button id="downloadCsv" type="button" title="Download center measurements as CSV">
-                    Download CSV
-                </button>
-                <button id="copyCsv" type="button" title="Copy center measurements to clipboard">
-                    Copy CSV
-                </button>
-            </div>
-            <p class="note" id="status">Loading Python layout engine...</p>
-        </section>
-
-        <section class="workspace" aria-label="Layout visualization">
-            <div class="canvas-wrap">
-                <svg id="courtSvg" role="img" aria-label="Court layout drawing"></svg>
-            </div>
-
-            <div class="panel measurements">
-                <div class="table-heading">
-                    <h2>Draw recipe</h2>
-                    <p>Measure from the field edge to the first center, then repeat.</p>
-                </div>
-                <div class="recipe-list" id="measurementRows"></div>
-            </div>
+                </section>
+            </aside>
         </section>
     </main>
 
     <script id="python-app" type="text/python">
-from js import document, Blob, URL, navigator
+from js import document
 from pyodide.ffi import create_proxy
 import math
 
@@ -182,8 +290,12 @@ state_ids = [
     "layoutHexLength",
 ]
 
-last_csv = ""
 layout_options = ["grid", "hex_width", "hex_length"]
+layout_labels = {
+    "grid": "Grid",
+    "hex_width": "Rows",
+    "hex_length": "Columns",
+}
 epsilon = 0.001
 layout_node_ids = {
     "grid": "layoutOptionGrid",
@@ -195,6 +307,7 @@ layout_input_ids = {
     "hex_width": "layoutHexWidth",
     "hex_length": "layoutHexLength",
 }
+settings_field_ids = ["courtRadius", "nhzRadius", "setRadius", "serviceRadius"]
 
 
 def el(selector):
@@ -327,7 +440,10 @@ def layout_recipe(state):
         rows = max(1, int(math.floor(usable_l / state["distance"])) + 1)
         x_gap = usable_w / (cols - 1) if cols > 1 else 0
         y_gap = usable_l / (rows - 1) if rows > 1 else 0
+        x_start = center_inset if cols > 1 else center_inset + usable_w / 2
+        y_start = center_inset if rows > 1 else center_inset + usable_l / 2
         return [
+            ("First center", f"{fmt(x_start)} m, {fmt(y_start)} m"),
             ("Repeat across", x_gap),
             ("Repeat up", y_gap),
         ]
@@ -341,24 +457,25 @@ def layout_recipe(state):
         second_col = first_col + repeat_across if metrics["rows"] > 1 else first_col
         second_col_y = first_y + repeat_up / 2 if metrics["even_cols"] > 1 else first_y
         return [
+            ("First center", f"{fmt(first_col)} m, {fmt(first_y)} m"),
+            ("Second anchor", f"{fmt(second_col)} m, {fmt(second_col_y)} m"),
+            ("Repeat across", repeat_across),
             ("Repeat up", repeat_up),
-            ("Column 2 from bottom", second_col_y),
-            ("Column 2 from left", second_col),
-            ("Repeat columns across", repeat_across),
         ]
 
     metrics = hex_metrics(usable_w, usable_l, state["distance"])
     x_gap = metrics["x_gap"]
     y_gap = metrics["y_gap"]
+    repeat_across = x_gap / 2 if x_gap else 0
     x_start = center_inset if metrics["even_cols"] > 1 else center_inset + usable_w / 2
     y_start = center_inset if metrics["rows"] > 1 else center_inset + usable_l / 2
     second_row_x = x_start + x_gap / 2 if metrics["even_cols"] > 1 else x_start
     second_row = y_start + y_gap if metrics["rows"] > 1 else y_start
     return [
-        ("Repeat across", x_gap),
-        ("Row 2 from left", second_row_x),
-        ("Row 2 from bottom", second_row),
-        ("Repeat rows up", y_gap),
+        ("First center", f"{fmt(x_start)} m, {fmt(y_start)} m"),
+        ("Second anchor", f"{fmt(second_row_x)} m, {fmt(second_row)} m"),
+        ("Repeat across", repeat_across),
+        ("Repeat up", y_gap),
     ]
 
 
@@ -375,8 +492,10 @@ def layout_guides(state):
         x_start = center_inset if cols > 1 else center_inset + usable_w / 2
         y_start = center_inset if rows > 1 else center_inset + usable_l / 2
         guides = [
-            {"axis": "x", "track": 0, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap},
-            {"axis": "y", "track": 0, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap},
+            {"axis": "x", "track": 0, "from": 0, "to": x_start, "label": f"{x_start:.2f} m", "value": x_start, "targets": [{"x": x_start, "y": y_start}]},
+            {"axis": "y", "track": 0, "from": 0, "to": y_start, "label": f"{y_start:.2f} m", "value": y_start, "targets": [{"x": x_start, "y": y_start}]},
+            {"axis": "x", "track": 1, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap, "targets": [{"x": x_start, "y": y_start}, {"x": x_start + x_gap, "y": y_start}]},
+            {"axis": "y", "track": 1, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap, "targets": [{"x": x_start, "y": y_start}, {"x": x_start, "y": y_start + y_gap}]},
         ]
         return guides
 
@@ -389,24 +508,29 @@ def layout_guides(state):
         second_col = x_start + repeat_across if metrics["rows"] > 1 else x_start
         second_col_y = y_start + repeat_up / 2 if metrics["even_cols"] > 1 else y_start
         return [
-            {"axis": "y", "track": 0, "from": y_start, "to": y_start + repeat_up, "label": f"{repeat_up:.2f} m", "value": repeat_up},
-            {"axis": "y", "track": 1, "from": 0, "to": second_col_y, "label": f"{second_col_y:.2f} m", "value": second_col_y},
-            {"axis": "x", "track": 0, "from": 0, "to": second_col, "label": f"{second_col:.2f} m", "value": second_col},
-            {"axis": "x", "track": 1, "from": x_start, "to": x_start + repeat_across, "label": f"{repeat_across:.2f} m", "value": repeat_across},
+            {"axis": "x", "track": 0, "from": 0, "to": x_start, "label": f"{x_start:.2f} m", "value": x_start, "targets": [{"x": x_start, "y": y_start}]},
+            {"axis": "y", "track": 0, "from": 0, "to": y_start, "label": f"{y_start:.2f} m", "value": y_start, "targets": [{"x": x_start, "y": y_start}]},
+            {"axis": "x", "track": 1, "from": 0, "to": second_col, "label": f"{second_col:.2f} m", "value": second_col, "targets": [{"x": second_col, "y": second_col_y}]},
+            {"axis": "y", "track": 1, "from": 0, "to": second_col_y, "label": f"{second_col_y:.2f} m", "value": second_col_y, "targets": [{"x": second_col, "y": second_col_y}]},
+            {"axis": "x", "track": 2, "from": x_start, "to": x_start + repeat_across, "label": f"{repeat_across:.2f} m", "value": repeat_across, "targets": [{"x": x_start, "y": y_start}, {"x": x_start + repeat_across, "y": y_start}]},
+            {"axis": "y", "track": 2, "from": y_start, "to": y_start + repeat_up, "label": f"{repeat_up:.2f} m", "value": repeat_up, "targets": [{"x": x_start, "y": y_start}, {"x": x_start, "y": y_start + repeat_up}]},
         ]
 
     metrics = hex_metrics(usable_w, usable_l, state["distance"])
     x_gap = metrics["x_gap"]
     y_gap = metrics["y_gap"]
+    repeat_across = x_gap / 2 if x_gap else 0
     x_start = center_inset if metrics["even_cols"] > 1 else center_inset + usable_w / 2
     y_start = center_inset if metrics["rows"] > 1 else center_inset + usable_l / 2
     second_row_x = x_start + x_gap / 2 if metrics["even_cols"] > 1 else x_start
     second_row = y_start + y_gap if metrics["rows"] > 1 else y_start
     return [
-        {"axis": "x", "track": 0, "from": x_start, "to": x_start + x_gap, "label": f"{x_gap:.2f} m", "value": x_gap},
-        {"axis": "x", "track": 1, "from": 0, "to": second_row_x, "label": f"{second_row_x:.2f} m", "value": second_row_x},
-        {"axis": "y", "track": 0, "from": 0, "to": second_row, "label": f"{second_row:.2f} m", "value": second_row},
-        {"axis": "y", "track": 1, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap},
+        {"axis": "x", "track": 0, "from": 0, "to": x_start, "label": f"{x_start:.2f} m", "value": x_start, "targets": [{"x": x_start, "y": y_start}]},
+        {"axis": "y", "track": 0, "from": 0, "to": y_start, "label": f"{y_start:.2f} m", "value": y_start, "targets": [{"x": x_start, "y": y_start}]},
+        {"axis": "x", "track": 1, "from": 0, "to": second_row_x, "label": f"{second_row_x:.2f} m", "value": second_row_x, "targets": [{"x": second_row_x, "y": second_row}]},
+        {"axis": "y", "track": 1, "from": 0, "to": second_row, "label": f"{second_row:.2f} m", "value": second_row, "targets": [{"x": second_row_x, "y": second_row}]},
+        {"axis": "x", "track": 2, "from": x_start, "to": second_row_x, "label": f"{repeat_across:.2f} m", "value": repeat_across, "targets": [{"x": x_start, "y": y_start}, {"x": second_row_x, "y": second_row}]},
+        {"axis": "y", "track": 2, "from": y_start, "to": y_start + y_gap, "label": f"{y_gap:.2f} m", "value": y_gap, "targets": [{"x": x_start, "y": y_start}, {"x": x_start, "y": y_start + y_gap}]},
     ]
 
 
@@ -538,21 +662,21 @@ def svg_node(name, attrs):
     return node
 
 
-def add_guide(svg, guide, pad, field_length):
+def add_guide(svg, guide, origin_x, origin_y, field_length):
     track = guide["track"]
     track_offset = 1.1 + track * 1.4
     if guide["axis"] == "x":
-        x1 = pad + guide["from"]
-        x2 = pad + guide["to"]
-        y1 = pad + field_length + track_offset
+        x1 = origin_x + guide["from"]
+        x2 = origin_x + guide["to"]
+        y1 = origin_y + field_length + track_offset
         y2 = y1
         label_x = (x1 + x2) / 2
         label_y = y1 + 0.95
     else:
-        x1 = pad - track_offset
+        x1 = origin_x - track_offset
         x2 = x1
-        y1 = pad + field_length - guide["from"]
-        y2 = pad + field_length - guide["to"]
+        y1 = origin_y + field_length - guide["from"]
+        y2 = origin_y + field_length - guide["to"]
         label_x = x1 - 0.65
         label_y = (y1 + y2) / 2
     line = svg_node("line", {
@@ -563,6 +687,25 @@ def add_guide(svg, guide, pad, field_length):
         "class": f"guide-line guide-track-{track}",
     })
     svg.appendChild(line)
+
+    for target in guide.get("targets", []):
+        if guide["axis"] == "x":
+            projection = svg_node("line", {
+                "x1": origin_x + target["x"],
+                "y1": origin_y + field_length,
+                "x2": origin_x + target["x"],
+                "y2": origin_y + field_length - target["y"],
+                "class": f"guide-projection guide-track-{track}",
+            })
+        else:
+            projection = svg_node("line", {
+                "x1": origin_x,
+                "y1": origin_y + field_length - target["y"],
+                "x2": origin_x + target["x"],
+                "y2": origin_y + field_length - target["y"],
+                "class": f"guide-projection guide-track-{track}",
+            })
+        svg.appendChild(projection)
 
     label = svg_node("text", {
         "x": label_x,
@@ -592,14 +735,18 @@ def draw_svg(state, centers, nearest):
     radius = state["radius"]
     margin = state["margin"]
     center_inset = margin + radius
-    pad = max(width, length) * 0.055
-    view_w = width + 2 * pad
-    view_l = length + 2 * pad
+    base = max(width, length)
+    pad_left = max(7.8, base * 0.1)
+    pad_right = max(2.8, base * 0.04)
+    pad_top = max(4.2, base * 0.06)
+    pad_bottom = max(7.4, base * 0.095)
+    view_w = width + pad_left + pad_right
+    view_l = length + pad_top + pad_bottom
     svg.setAttribute("viewBox", f"0 0 {view_w} {view_l}")
 
     field = svg_node("rect", {
-        "x": pad,
-        "y": pad,
+        "x": pad_left,
+        "y": pad_top,
         "width": width,
         "height": length,
         "rx": 0.45,
@@ -611,8 +758,8 @@ def draw_svg(state, centers, nearest):
         usable_w = max(0, width - 2 * center_inset)
         usable_l = max(0, length - 2 * center_inset)
         usable = svg_node("rect", {
-            "x": pad + center_inset,
-            "y": pad + center_inset,
+            "x": pad_left + center_inset,
+            "y": pad_top + center_inset,
             "width": usable_w,
             "height": usable_l,
             "class": "usable-rect",
@@ -620,11 +767,11 @@ def draw_svg(state, centers, nearest):
         svg.appendChild(usable)
 
     for guide in layout_guides(state):
-        add_guide(svg, guide, pad, length)
+        add_guide(svg, guide, pad_left, pad_top, length)
 
     for idx, ((x, y), near) in enumerate(zip(centers, nearest), start=1):
-        cx = pad + x
-        cy = pad + length - y
+        cx = pad_left + x
+        cy = pad_top + length - y
         circle = svg_node("circle", {
             "cx": cx,
             "cy": cy,
@@ -665,8 +812,8 @@ def draw_svg(state, centers, nearest):
         svg.appendChild(label)
 
     labels = [
-        (pad + width / 2, pad - pad * 0.25, f"{fmt(width)} m"),
-        (pad - pad * 0.38, pad + length / 2, f"{fmt(length)} m"),
+        (pad_left + width / 2, pad_top - min(1.25, pad_top * 0.28), f"{fmt(width)} m"),
+        (pad_left - min(1.85, pad_left * 0.24), pad_top + length / 2, f"{fmt(length)} m"),
     ]
     for x, y, text in labels:
         label = svg_node("text", {"x": x, "y": y, "class": "dimension-label", "text-anchor": "middle"})
@@ -685,7 +832,9 @@ def render_recipe(state):
         text.textContent = label
         val = document.createElement("div")
         val.className = "recipe-value"
-        if value > 0:
+        if isinstance(value, str):
+            val.textContent = value
+        elif value > 0:
             val.textContent = f"{fmt(value)} m"
         else:
             val.textContent = "-"
@@ -694,12 +843,17 @@ def render_recipe(state):
         body.appendChild(row)
 
 
-def build_csv(centers, nearest):
-    lines = ["court,x_m,y_m,nearest_center_m"]
-    for idx, ((x, y), near) in enumerate(zip(centers, nearest), start=1):
-        near_text = "" if near is None else f"{near:.2f}"
-        lines.append(f"{idx},{x:.2f},{y:.2f},{near_text}")
-    return "\n".join(lines)
+def reset_settings(*args):
+    for node_id in settings_field_ids:
+        node = by_id(node_id)
+        node.value = node.dataset.default
+    render()
+
+
+def print_layout(*args):
+    window = document.defaultView
+    if window:
+        window.print()
 
 
 def update_layout_choices(selected_option, best_option):
@@ -719,7 +873,6 @@ def update_layout_choices(selected_option, best_option):
 
 
 def render(*args):
-    global last_csv
     state = read_state()
     center_inset = state["margin"] + state["radius"]
     usable_w = max(0, state["field_width"] - 2 * center_inset)
@@ -730,22 +883,20 @@ def render(*args):
 
     nearest = nearest_distances(centers)
     overlap = overlap_area_ratio(centers, state["radius"])
+    actual_spacing = min([distance for distance in nearest if distance is not None], default=None)
 
     by_id("fieldWidthValue").textContent = f"{fmt(state['field_width'])} m"
     by_id("fieldLengthValue").textContent = f"{fmt(state['field_length'])} m"
-    by_id("courtRadiusValue").textContent = f"{fmt(state['radius'])} m"
-    by_id("nhzRadiusValue").textContent = f"{fmt(state['nhz_radius'])} m"
-    by_id("setRadiusValue").textContent = f"{fmt(state['set_radius'])} m"
-    by_id("serviceRadiusValue").textContent = f"{fmt(state['service_radius'])} m"
     by_id("centerDistanceValue").textContent = f"{fmt(state['distance'])} m"
-    by_id("marginValue").textContent = f"{fmt(state['margin'])} m"
     by_id("courtCount").textContent = str(len(centers))
     by_id("overlapValue").textContent = fmt_percent(overlap)
+    by_id("minSpacingValue").textContent = "-" if actual_spacing is None else f"{fmt(actual_spacing)} m"
+    by_id("usableValue").textContent = f"{fmt(usable_w)} x {fmt(usable_l)} m"
+    by_id("bestLayoutValue").textContent = f"Best right now: {layout_labels[best_layout['option']]} with {best_layout['count']} courts"
     update_layout_choices(state["layout_option"], best_layout["option"])
 
     draw_svg(state, centers, nearest)
     render_recipe(state)
-    last_csv = build_csv(centers, nearest)
     status = "Ready"
     if state["mode"] == "hex":
         other_option = "hex_length" if state["layout_option"] == "hex_width" else "hex_width"
@@ -756,29 +907,12 @@ def render(*args):
             status = "Only two centers fit across the width, so rows can still look length-aligned."
     by_id("status").textContent = status
 
-
-def download_csv(*args):
-    blob = Blob.new([last_csv], {"type": "text/csv;charset=utf-8"})
-    url = URL.createObjectURL(blob)
-    link = document.createElement("a")
-    link.href = url
-    link.download = "court-centers.csv"
-    link.click()
-    URL.revokeObjectURL(url)
-
-
-async def copy_csv(*args):
-    if navigator.clipboard:
-        await navigator.clipboard.writeText(last_csv)
-        by_id("status").textContent = "CSV copied to clipboard"
-
-
 for node_id in state_ids:
     event_name = "change" if node_id in layout_input_ids.values() else "input"
     by_id(node_id).addEventListener(event_name, create_proxy(render))
 
-by_id("downloadCsv").addEventListener("click", create_proxy(download_csv))
-by_id("copyCsv").addEventListener("click", create_proxy(copy_csv))
+by_id("resetSettings").addEventListener("click", create_proxy(reset_settings))
+by_id("printLayout").addEventListener("click", create_proxy(print_layout))
 render()
     </script>
 
