@@ -66,13 +66,6 @@
                             </label>
 
                             <label class="setting-field">
-                                <span>Set radius</span>
-                                <input id="setRadius" type="number" min="0" max="12.5" step="0.01" value="0.91"
-                                    data-default="0.91" />
-                                <small>Default 0.91 m</small>
-                            </label>
-
-                            <label class="setting-field">
                                 <span>Service line radius</span>
                                 <input id="serviceRadius" type="number" min="0" max="12.5" step="0.01" value="2.59"
                                     data-default="2.59" />
@@ -95,34 +88,23 @@
                         <p class="visual-note">Print-ready view with edge measurements for the first setup marks.</p>
                     </div>
 
+                    <div class="legend-strip" aria-label="Court line key">
+                        <span class="legend-pill"><span class="legend-swatch field-swatch"></span><span>Field</span></span>
+                        <span class="legend-pill"><span class="legend-swatch bounds-swatch"></span><span>Out of bounds</span></span>
+                        <span class="legend-pill"><span class="legend-swatch service-swatch"></span><span>Service</span></span>
+                        <span class="legend-pill"><span class="legend-swatch nhz-swatch"></span><span>NHZ</span></span>
+                    </div>
+
                     <div class="visual-body">
                         <div class="canvas-wrap">
                             <svg id="courtSvg" role="img" aria-label="Court layout drawing"></svg>
                         </div>
 
                         <div class="visual-meta">
-                            <section class="legend-block" aria-label="Court line legend">
-                                <div class="section-heading compact-heading">
-                                    <h2>Legend</h2>
-                                </div>
-                                <div class="legend-list">
-                                    <div class="legend-row"><span class="legend-swatch field-swatch"></span><span>Field
-                                            boundary</span></div>
-                                    <div class="legend-row"><span class="legend-swatch bounds-swatch"></span><span>Out
-                                            of bounds</span></div>
-                                    <div class="legend-row"><span
-                                            class="legend-swatch service-swatch"></span><span>Service line</span></div>
-                                    <div class="legend-row"><span
-                                            class="legend-swatch nhz-swatch"></span><span>NHZ</span></div>
-                                    <div class="legend-row"><span class="legend-swatch set-swatch"></span><span>Set
-                                            line</span></div>
-                                </div>
-                            </section>
-
                             <section class="measurements">
                                 <div class="section-heading compact-heading">
                                     <h2>Draw recipe</h2>
-                                    <p>Anchor the first row or column, then repeat.</p>
+                                    <p>Mark the anchors, then repeat the pattern.</p>
                                 </div>
                                 <div class="recipe-list" id="measurementRows"></div>
                             </section>
@@ -276,7 +258,6 @@
             "fieldLength",
             "courtRadius",
             "nhzRadius",
-            "setRadius",
             "serviceRadius",
             "centerDistance",
             "margin",
@@ -302,7 +283,7 @@
             hex_width: "layoutHexWidth",
             hex_length: "layoutHexLength",
         };
-        const settingsFieldIds = ["courtRadius", "nhzRadius", "setRadius", "serviceRadius"];
+        const settingsFieldIds = ["courtRadius", "nhzRadius", "serviceRadius"];
 
         function byId(nodeId) {
             return document.getElementById(nodeId);
@@ -342,7 +323,6 @@
                     field_length: Number(byId("fieldLength").value),
                     radius: Number(byId("courtRadius").value),
                     nhz_radius: Number(byId("nhzRadius").value),
-                    set_radius: Number(byId("setRadius").value),
                     service_radius: Number(byId("serviceRadius").value),
                     distance: Number(byId("centerDistance").value),
                     margin: Number(byId("margin").value),
@@ -747,7 +727,6 @@
                 [
                     [state.service_radius, "service-circle"],
                     [state.nhz_radius, "nhz-circle"],
-                    [state.set_radius, "set-circle"],
                 ].forEach(([ringRadius, ringClass]) => {
                     if (ringRadius > 0) {
                         svg.appendChild(svgNode("circle", { cx, cy, r: ringRadius, class: `court-ring ${ringClass}` }));

@@ -318,7 +318,7 @@ input[type="number"] {
 
 .visual-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
   height: calc(100dvh - 126px);
   min-height: 560px;
@@ -331,10 +331,28 @@ input[type="number"] {
 
 .visual-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 236px);
   gap: 12px;
   align-items: start;
   min-height: 0;
+}
+
+.legend-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .canvas-wrap {
@@ -358,76 +376,62 @@ input[type="number"] {
 
 .visual-meta {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-content: start;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
-.legend-block,
 .measurements {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfdff;
-  padding: 12px;
+  padding: 10px;
 }
 
 .compact-heading {
   border-bottom: 1px solid var(--line);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 
 .compact-heading p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.legend-list,
-.recipe-list {
-  display: grid;
-  gap: 8px;
-}
-
-.legend-row {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  color: var(--ink);
-  font-size: 0.84rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .legend-swatch {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
   border-radius: 999px;
 }
 
 .field-swatch {
   background: var(--field);
-  border: 2px solid var(--field-dark);
+  border: 1.5px solid var(--field-dark);
 }
 
 .bounds-swatch {
   background: rgba(230, 125, 50, 0.12);
-  border: 2px solid rgba(230, 125, 50, 0.9);
+  border: 1.5px solid rgba(230, 125, 50, 0.9);
 }
 
 .service-swatch {
-  border: 2px solid rgba(47, 115, 221, 0.76);
+  border: 1.5px solid rgba(47, 115, 221, 0.76);
 }
 
 .nhz-swatch {
-  border: 2px solid rgba(93, 143, 99, 0.9);
+  border: 1.5px solid rgba(93, 143, 99, 0.9);
 }
 
-.set-swatch {
-  border: 2px solid rgba(166, 81, 24, 0.82);
+.recipe-list {
+  display: grid;
+  gap: 6px;
 }
 
 .recipe-row {
@@ -438,17 +442,18 @@ input[type="number"] {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #ffffff;
-  padding: 8px 10px;
+  padding: 7px 9px;
 }
 
 .recipe-label {
   color: var(--ink);
-  font-size: 0.84rem;
+  font-size: 0.79rem;
   font-weight: 700;
 }
 
 .recipe-value {
   color: var(--accent-dark);
+  font-size: 0.79rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   white-space: nowrap;
@@ -772,10 +777,6 @@ input[type="range"] {
   stroke: rgba(93, 143, 99, 0.92);
 }
 
-.set-circle {
-  stroke: rgba(166, 81, 24, 0.78);
-}
-
 .center-dot {
   fill: rgba(22, 35, 41, 0.84);
 }
@@ -843,7 +844,7 @@ input[type="range"] {
   }
 
   .visual-body {
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 30vw);
+    grid-template-columns: minmax(0, 1fr) minmax(142px, 29vw);
     gap: 12px;
   }
 
@@ -880,43 +881,40 @@ input[type="range"] {
   }
 
   .visual-body {
-    grid-template-columns: minmax(0, 1fr) minmax(122px, 34vw);
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(110px, 33vw);
+    gap: 8px;
   }
 
   .visual-meta {
-    gap: 10px;
+    gap: 8px;
   }
 
-  .legend-block,
   .measurements {
-    padding: 10px;
+    padding: 8px;
   }
 
   .compact-heading h2 {
-    font-size: 0.94rem;
+    font-size: 0.86rem;
   }
 
   .compact-heading p,
   .card-note,
   .visual-note {
-    font-size: 0.76rem;
+    font-size: 0.72rem;
   }
 
-  .legend-row {
-    grid-template-columns: 14px minmax(0, 1fr);
-    gap: 8px;
-    font-size: 0.78rem;
+  .legend-strip {
+    gap: 6px 8px;
   }
 
-  .legend-swatch {
-    width: 14px;
-    height: 14px;
+  .legend-pill {
+    font-size: 0.69rem;
+    gap: 5px;
   }
 
   .recipe-label,
   .recipe-value {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
   }
 
   .layout-options,
@@ -979,7 +977,7 @@ input[type="range"] {
     break-inside: avoid;
   }
 
-  .legend-block,
+  .legend-strip,
   .measurements {
     break-inside: avoid;
   }
