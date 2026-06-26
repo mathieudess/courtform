@@ -137,10 +137,6 @@
                             <span class="stat-value" id="minSpacingValue">-</span>
                             <span class="stat-label">min spacing</span>
                         </div>
-                        <div>
-                            <span class="stat-value" id="usableValue">0 x 0 m</span>
-                            <span class="stat-label">usable zone</span>
-                        </div>
                     </div>
                 </section>
 
@@ -791,7 +787,6 @@
             byId("courtCount").textContent = String(centers.length);
             byId("overlapValue").textContent = fmtPercent(overlap);
             byId("minSpacingValue").textContent = actualSpacing === Infinity ? "-" : `${fmt(actualSpacing)} m`;
-            byId("usableValue").textContent = `${fmt(usableW)} x ${fmt(usableL)} m`;
             byId("bestLayoutValue").textContent = `Best: ${layoutLabels[bestLayout.option]} · ${bestLayout.count}`;
             updateLayoutChoices(state.layout_option, bestLayout.option);
 
